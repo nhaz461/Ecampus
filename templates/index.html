@@ -3,6 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2991/2991148.png">
+    
     <title>eCampus Hub - Personal Academic & File Manager</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,7 +19,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <!-- Custom styling for mobile optimization -->
     <style>
-        /* Touch optimization & tap highlights */
         * {
             -webkit-tap-highlight-color: transparent;
         }
@@ -39,7 +45,6 @@
             color: #1e40af;
             border: 1px solid #60a5fa;
         }
-        /* Custom scrollbars for clean mobile feel */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -52,7 +57,7 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col pb-20 md:pb-6">
 
-    <!-- Top Header (Compact on mobile) -->
+    <!-- Top Header -->
     <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 shadow-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
             <div class="flex items-center space-x-2.5 sm:space-x-3">
@@ -65,8 +70,14 @@
                 </div>
             </div>
 
-            <!-- Reminder Notification Toggle Button -->
+            <!-- Install APK & Notification Toggle Buttons -->
             <div class="flex items-center space-x-2">
+                <!-- PWA Install Button -->
+                <button id="btnInstallPwa" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl flex items-center space-x-1.5 transition font-bold shadow">
+                    <i class="fa-solid fa-download text-sm"></i>
+                    <span class="text-[11px] sm:text-xs">Install APK</span>
+                </button>
+
                 <button id="btnEnableNotifications" onclick="requestNotificationPermission()" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl flex items-center space-x-1.5 transition border border-slate-600">
                     <i class="fa-solid fa-bell text-yellow-400 text-sm"></i>
                     <span id="notifStatusText" class="text-[11px] sm:text-xs">Pengingat</span>
@@ -137,7 +148,7 @@
 
             <!-- TAB 1: DASHBOARD -->
             <section id="tab-dashboard" class="space-y-4 sm:space-y-6">
-                <!-- Summary Metric Cards (Responsive Grid 2x2 mobile, 4x1 desktop) -->
+                <!-- Summary Metric Cards -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
                     <div class="bg-slate-800 border border-slate-700 p-3 sm:p-4 rounded-2xl flex items-center space-x-3 shadow-sm">
                         <div class="p-2.5 sm:p-3 bg-blue-500/20 text-blue-400 rounded-xl shrink-0">
@@ -189,7 +200,6 @@
                             <button onclick="switchTab('assignments')" class="text-xs text-blue-400 hover:text-blue-300 font-semibold">Lihat Semua &rarr;</button>
                         </div>
                         <div id="dashboardUpcomingTasks" class="space-y-2.5">
-                            <!-- Tasks populated dynamically -->
                             <div class="text-center py-6 text-slate-500 text-xs">Memuat pengingat tugas...</div>
                         </div>
                     </div>
@@ -203,7 +213,6 @@
                             </button>
                         </div>
                         <div id="dashboardSemesterList" class="space-y-2 max-h-72 sm:max-h-80 overflow-y-auto pr-1">
-                            <!-- Semesters list populated dynamically -->
                             <div class="text-center py-6 text-slate-500 text-xs">Memuat semester...</div>
                         </div>
                     </div>
@@ -227,12 +236,9 @@
                     </div>
                 </div>
 
-                <!-- Semester Selector Horizontal Touch Scroll -->
                 <div id="semesterTabsNav" class="flex overflow-x-auto space-x-2 pb-2 scrollbar-none">
-                    <!-- Semester pills inserted via JS -->
                 </div>
 
-                <!-- Selected Semester Details & Courses Grid -->
                 <div id="coursesContainer" class="space-y-4">
                     <div class="text-center py-10 text-slate-500 text-xs">Pilih semester di atas untuk melihat daftar mata kuliah.</div>
                 </div>
@@ -258,7 +264,6 @@
                     </div>
                 </div>
 
-                <!-- Assignments List / Cards -->
                 <div id="assignmentsList" class="space-y-3">
                     <div class="text-center py-10 text-slate-500 text-xs">Memuat daftar tugas...</div>
                 </div>
@@ -286,14 +291,11 @@
                     </div>
                 </div>
 
-                <!-- Files Table (Desktop View) / Mobile Card List -->
                 <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow">
-                    <!-- Mobile view cards -->
                     <div id="filesMobileList" class="block md:hidden divide-y divide-slate-700 p-2 space-y-2">
                         <div class="text-center py-8 text-slate-500 text-xs">Memuat berkas...</div>
                     </div>
 
-                    <!-- Desktop view table -->
                     <div class="hidden md:block overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -318,7 +320,7 @@
         </main>
     </div>
 
-    <!-- ==================== MOBILE BOTTOM NAVIGATION BAR ==================== -->
+    <!-- MOBILE BOTTOM NAVIGATION BAR -->
     <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-800/95 backdrop-blur-md border-t border-slate-700 z-40 flex items-center justify-around py-2 px-1 shadow-2xl">
         <button onclick="switchTab('dashboard')" id="mobile-nav-dashboard" class="flex flex-col items-center justify-center w-full py-1 text-slate-400 transition">
             <i class="fa-solid fa-chart-pie text-lg mb-0.5"></i>
@@ -339,19 +341,18 @@
         </button>
     </nav>
 
-    <!-- FLOATING ACTION BUTTON (FAB) ON MOBILE -->
+    <!-- FLOATING ACTION BUTTON (FAB) -->
     <div class="md:hidden fixed bottom-16 right-4 z-40 flex flex-col space-y-2">
         <button onclick="openModalAddAssignment()" title="Tambah Tugas Baru" class="bg-blue-600 hover:bg-blue-500 active:scale-90 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition border border-blue-400">
             <i class="fa-solid fa-plus text-lg"></i>
         </button>
     </div>
 
-    <!-- ==================== MODALS ==================== -->
+    <!-- MODALS -->
 
-    <!-- FILE PREVIEW MODAL (Full screen optimized on mobile) -->
+    <!-- FILE PREVIEW MODAL -->
     <div id="previewModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-0 md:p-4">
         <div class="bg-slate-800 border-0 md:border md:border-slate-700 w-full h-full md:h-[85vh] md:max-w-5xl md:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
-            <!-- Modal Header -->
             <div class="p-3.5 sm:p-4 bg-slate-900 border-b border-slate-700 flex items-center justify-between">
                 <div class="flex items-center space-x-3 overflow-hidden mr-2">
                     <div id="previewIcon" class="text-lg sm:text-xl text-blue-400 shrink-0"><i class="fa-solid fa-file"></i></div>
@@ -370,9 +371,7 @@
                     </button>
                 </div>
             </div>
-            <!-- Modal Body (Preview Content Area) -->
             <div id="previewBody" class="flex-1 bg-slate-950 p-2 sm:p-4 overflow-auto flex items-center justify-center">
-                <!-- Preview elements rendered dynamically -->
             </div>
         </div>
     </div>
@@ -462,7 +461,6 @@
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih Semester</label>
                     <select id="courseSemesterSelect" required class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
-                        <!-- Populated dynamically -->
                     </select>
                 </div>
                 <div class="grid grid-cols-3 gap-3">
@@ -514,7 +512,6 @@
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih Mata Kuliah</label>
                     <select id="taskCourseSelect" required class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
-                        <!-- Populated dynamically -->
                     </select>
                 </div>
                 <div>
@@ -549,5 +546,39 @@
 
     <!-- Application JavaScript Logic -->
     <script src="/static/js/app.js"></script>
+    <script>
+        // Register Service Worker for PWA / APK installation
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js').then((reg) => {
+                    console.log('PWA Service Worker registered:', reg);
+                }).catch((err) => {
+                    console.error('Service Worker registration failed:', err);
+                });
+            });
+        }
+
+        // Handle PWA Install Prompt
+        let deferredPrompt;
+        const installBtn = document.getElementById('btnInstallPwa');
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (installBtn) installBtn.classList.remove('hidden');
+        });
+
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        installBtn.classList.add('hidden');
+                    }
+                    deferredPrompt = null;
+                }
+            });
+        }
+    </script>
 </body>
 </html>
