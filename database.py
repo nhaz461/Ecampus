@@ -1,15 +1,29 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'ecampus.db')
+# Check if running on Vercel (read-only filesystem, must use /tmp)
+if os.environ.get('VERCEL') == '1' or os.environ.get('VERCEL_ENV'):
+    DB_PATH = '/tmp/ecampus.db'
+else:
+    DB_PATH = os.path.join(os.path.dirname(__file__), 'ecampus.db')
 
 def get_db():
+    # Make sure directory exists if in /tmp
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+
+    # Initialize db file if not created yet
+    needs_init = not os.path.exists(DB_PATH)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+
+    if needs_init:
+        _create_schema(conn)
+
     return conn
 
-def init_db():
-    conn = get_db()
+def _create_schema(conn):
     cursor = conn.cursor()
     
     # Semesters table
@@ -48,20 +62,20 @@ def init_db():
             title TEXT NOT NULL,
             description TEXT,
             deadline DATETIME NOT NULL,
-            priority TEXT DEFAULT 'Sedang', -- 'Tinggi', 'Sedang', 'Rendah'
-            status TEXT DEFAULT 'Belum',    -- 'Belum', 'Proses', 'Selesai'
+            priority TEXT DEFAULT 'Sedang',
+            status TEXT DEFAULT 'Belum',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
         )
     ''')
 
-    # Files table (Kontrak Kuliah, Tugas, Materi, DLL)
+    # Files table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             course_id INTEGER,
             assignment_id INTEGER,
-            category TEXT NOT NULL, -- 'kontrak', 'tugas', 'materi', 'catatan', 'lainnya'
+            category TEXT NOT NULL,
             filename TEXT NOT NULL,
             original_name TEXT NOT NULL,
             file_path TEXT NOT NULL,
@@ -88,7 +102,6 @@ def init_db():
         ]
         cursor.executemany('INSERT INTO semesters (name, academic_year, status) VALUES (?, ?, ?)', default_semesters)
 
-        # Seed sample courses & sample assignments for demo
         cursor.execute('SELECT id FROM semesters WHERE name = ?', ('Semester 4',))
         sem4 = cursor.fetchone()
         if sem4:
@@ -105,7 +118,6 @@ def init_db():
             ''', (sem4_id, "IF402", "Basis Data Lanjut", 3, "Prof. Siti Aminah, Ph.D.", "Rabu, 13:00 - 15:30", "Ruang 402", "Materi seputar Query Optimization & NoSQL"))
             course_id_2 = cursor.lastrowid
 
-            # Sample assignments
             cursor.execute('''
                 INSERT INTO assignments (course_id, title, description, deadline, priority, status)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -117,6 +129,9 @@ def init_db():
             ''', (course_id_2, "Laporan Praktikum Query Optimization", "Analisis performa indexing pada database SQLite & PostgreSQL dengan dataset 100k baris.", "2026-10-02 17:00:00", "Sedang", "Belum"))
 
     conn.commit()
+
+def init_db():
+    conn = get_db()
     conn.close()
 
 if __name__ == '__main__':

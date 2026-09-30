@@ -6,13 +6,16 @@ from werkzeug.utils import secure_filename
 from database import get_db, init_db
 
 app = Flask(__name__)
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+
+# Determine Upload Folder (Use /tmp on Vercel)
+if os.environ.get('VERCEL') == '1' or os.environ.get('VERCEL_ENV'):
+    UPLOAD_FOLDER = '/tmp/uploads'
+else:
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload size
-
-# Initialize database
-init_db()
 
 # --- Page Routes ---
 @app.route('/')
@@ -27,14 +30,12 @@ def get_semesters():
     cursor.execute('SELECT * FROM semesters ORDER BY id ASC')
     semesters = [dict(row) for row in cursor.fetchall()]
     
-    # Attach course count and SKS total
     for sem in semesters:
         cursor.execute('SELECT COUNT(*) as course_count, COALESCE(SUM(sks), 0) as total_sks FROM courses WHERE semester_id = ?', (sem['id'],))
         stats = cursor.fetchone()
         sem['course_count'] = stats['course_count']
         sem['total_sks'] = stats['total_sks']
 
-        # Count pending tasks
         cursor.execute('''
             SELECT COUNT(*) as pending_tasks FROM assignments a
             JOIN courses c ON a.course_id = c.id
@@ -86,11 +87,9 @@ def get_courses():
     courses = [dict(row) for row in cursor.fetchall()]
     
     for c in courses:
-        # Get count of pending assignments
         cursor.execute('SELECT COUNT(*) as count FROM assignments WHERE course_id = ? AND status != "Selesai"', (c['id'],))
         c['pending_assignments'] = cursor.fetchone()['count']
         
-        # Get file count
         cursor.execute('SELECT COUNT(*) as count FROM files WHERE course_id = ?', (c['id'],))
         c['file_count'] = cursor.fetchone()['count']
         
@@ -178,7 +177,6 @@ def get_assignments():
     cursor.execute(query, params)
     assignments = [dict(row) for row in cursor.fetchall()]
     
-    # Attach files to assignments
     for task in assignments:
         cursor.execute('SELECT * FROM files WHERE assignment_id = ?', (task['id'],))
         task['files'] = [dict(f) for f in cursor.fetchall()]
@@ -287,7 +285,7 @@ def upload_file():
 
     course_id = request.form.get('course_id')
     assignment_id = request.form.get('assignment_id')
-    category = request.form.get('category', 'lainnya') # 'kontrak', 'tugas', 'materi', 'catatan', 'lainnya'
+    category = request.form.get('category', 'lainnya')
 
     original_name = secure_filename(file.filename)
     if not original_name:
@@ -387,7 +385,6 @@ def get_dashboard_summary():
     cursor.execute("SELECT COUNT(*) as urgent_tasks FROM assignments WHERE status != 'Selesai' AND deadline <= datetime('now', '+3 days')")
     urgent_tasks = cursor.fetchone()['urgent_tasks']
 
-    # Get upcoming 5 tasks
     cursor.execute('''
         SELECT a.*, c.name as course_name, s.name as semester_name
         FROM assignments a
