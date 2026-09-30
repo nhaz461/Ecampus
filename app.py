@@ -33,8 +33,8 @@ def get_semesters():
     for sem in semesters:
         cursor.execute('SELECT COUNT(*) as course_count, COALESCE(SUM(sks), 0) as total_sks FROM courses WHERE semester_id = ?', (sem['id'],))
         stats = cursor.fetchone()
-        sem['course_count'] = stats['course_count']
-        sem['total_sks'] = stats['total_sks']
+        sem['course_count'] = stats['course_count'] if stats['course_count'] else 0
+        sem['total_sks'] = stats['total_sks'] if stats['total_sks'] else 0
 
         cursor.execute('''
             SELECT COUNT(*) as pending_tasks FROM assignments a
@@ -90,7 +90,11 @@ def get_courses():
         cursor.execute('SELECT COUNT(*) as count FROM assignments WHERE course_id = ? AND status != "Selesai"', (c['id'],))
         c['pending_assignments'] = cursor.fetchone()['count']
         
-        cursor.execute('SELECT COUNT(*) as count FROM files WHERE course_id = ?', (c['id'],))
+        # Count files attached to this course directly OR through assignments of this course
+        cursor.execute('''
+            SELECT COUNT(*) as count FROM files 
+            WHERE course_id = ? OR assignment_id IN (SELECT id FROM assignments WHERE course_id = ?)
+        ''', (c['id'], c['id']))
         c['file_count'] = cursor.fetchone()['count']
         
     conn.close()
@@ -262,7 +266,8 @@ def get_files():
     params = []
     
     if course_id:
-        query += ' AND f.course_id = ?'
+        query += ' AND (f.course_id = ? OR f.assignment_id IN (SELECT id FROM assignments WHERE course_id = ?))'
+        params.append(course_id)
         params.append(course_id)
     if category:
         query += ' AND f.category = ?'
@@ -367,6 +372,18 @@ def delete_file(file_id):
     conn.close()
     return jsonify({'status': 'success', 'message': 'File berhasil dihapus'})
 
+# --- API: Reset Demo Data ---
+@app.route('/api/reset-data', methods=['POST'])
+def reset_data():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM files')
+    cursor.execute('DELETE FROM assignments')
+    cursor.execute('DELETE FROM courses')
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'success', 'message': 'Seluruh data tugas & berkas berhasil dikosongkan.'})
+
 # --- API: Dashboard Summary & Notifications ---
 @app.route('/api/dashboard/summary', methods=['GET'])
 def get_dashboard_summary():
@@ -400,11 +417,11 @@ def get_dashboard_summary():
     return jsonify({
         'status': 'success',
         'summary': {
-            'total_semesters': total_semesters,
-            'total_courses': course_stats['total_courses'],
-            'total_sks': course_stats['total_sks'],
-            'pending_tasks': pending_tasks,
-            'urgent_tasks': urgent_tasks
+            'total_semesters': total_semesters or 0,
+            'total_courses': course_stats['total_courses'] if course_stats['total_courses'] else 0,
+            'total_sks': course_stats['total_sks'] if course_stats['total_sks'] else 0,
+            'pending_tasks': pending_tasks or 0,
+            'urgent_tasks': urgent_tasks or 0
         },
         'upcoming_tasks': upcoming_tasks
     })

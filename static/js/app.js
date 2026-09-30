@@ -54,7 +54,7 @@ async function loadSemestersData() {
         const res = await fetch('/api/semesters');
         const data = await res.json();
         if (data.status === 'success') {
-            globalSemesters = data.data;
+            globalSemesters = data.data || [];
             populateSemesterDropdowns();
         }
     } catch (err) {
@@ -65,9 +65,13 @@ async function loadSemestersData() {
 function populateSemesterDropdowns() {
     const courseSemSelect = document.getElementById('courseSemesterSelect');
     if (courseSemSelect) {
-        courseSemSelect.innerHTML = globalSemesters.map(s => 
-            `<option value="${s.id}">${s.name} (${s.academic_year || 'N/A'})</option>`
-        ).join('');
+        if (!globalSemesters || globalSemesters.length === 0) {
+            courseSemSelect.innerHTML = '<option value="">-- Belum Ada Semester --</option>';
+        } else {
+            courseSemSelect.innerHTML = globalSemesters.map(s => 
+                `<option value="${s.id}">${s.name} (${s.academic_year || 'N/A'})</option>`
+            ).join('');
+        }
     }
 }
 
@@ -77,30 +81,35 @@ async function loadDashboardSummary() {
         const res = await fetch('/api/dashboard/summary');
         const data = await res.json();
         if (data.status === 'success') {
-            const summary = data.summary;
-            document.getElementById('statTotalCourses').innerText = summary.total_courses;
-            document.getElementById('statTotalSks').innerText = summary.total_sks;
-            document.getElementById('statPendingTasks').innerText = summary.pending_tasks;
-            document.getElementById('statUrgentTasks').innerText = summary.urgent_tasks;
+            const summary = data.summary || {};
+            const totalCourses = summary.total_courses || 0;
+            const totalSks = summary.total_sks || 0;
+            const pendingTasks = summary.pending_tasks || 0;
+            const urgentTasks = summary.urgent_tasks || 0;
+
+            document.getElementById('statTotalCourses').innerText = totalCourses;
+            document.getElementById('statTotalSks').innerText = totalSks;
+            document.getElementById('statPendingTasks').innerText = pendingTasks;
+            document.getElementById('statUrgentTasks').innerText = urgentTasks;
 
             // Sidebar & Mobile nav badges
             const badgeDesktop = document.getElementById('badgePendingTasksCount');
             const badgeMobile = document.getElementById('mobileBadgePendingCount');
-            if (badgeDesktop) badgeDesktop.innerText = summary.pending_tasks;
-            if (badgeMobile) badgeMobile.innerText = summary.pending_tasks;
+            if (badgeDesktop) badgeDesktop.innerText = pendingTasks;
+            if (badgeMobile) badgeMobile.innerText = pendingTasks;
 
             // Urgent alert banner
             const banner = document.getElementById('urgentAlertBanner');
-            if (summary.urgent_tasks > 0) {
+            if (urgentTasks > 0) {
                 banner.classList.remove('hidden');
-                document.getElementById('urgentAlertText').innerText = `Perhatian: Ada ${summary.urgent_tasks} tugas yang mendekati deadline dalam kurun 3 hari!`;
-                triggerWebNotification("Pengingat Tugas eCampus", `Anda memiliki ${summary.urgent_tasks} tugas mendesak!`);
+                document.getElementById('urgentAlertText').innerText = `Perhatian: Ada ${urgentTasks} tugas yang mendekati deadline dalam kurun 3 hari!`;
+                triggerWebNotification("Pengingat Tugas eCampus", `Anda memiliki ${urgentTasks} tugas mendesak!`);
             } else {
                 banner.classList.add('hidden');
             }
 
             // Render upcoming tasks widget
-            renderUpcomingTasks(data.upcoming_tasks);
+            renderUpcomingTasks(data.upcoming_tasks || []);
 
             // Render semester summary list
             renderDashboardSemesterList();
@@ -116,7 +125,7 @@ function renderUpcomingTasks(tasks) {
         container.innerHTML = `
             <div class="text-center py-6 text-slate-500 text-xs">
                 <i class="fa-solid fa-circle-check text-2xl text-emerald-500 mb-2 block"></i>
-                Tidak ada tugas mendesak saat ini. Selamat!
+                Tidak ada tugas mendesak saat ini. Kosong!
             </div>`;
         return;
     }
@@ -153,18 +162,29 @@ function renderUpcomingTasks(tasks) {
 
 function renderDashboardSemesterList() {
     const container = document.getElementById('dashboardSemesterList');
-    container.innerHTML = globalSemesters.map(s => `
-        <div onclick="selectSemesterTab(${s.id})" class="p-2.5 sm:p-3 bg-slate-900/60 hover:bg-slate-700/60 border border-slate-700/80 rounded-xl flex items-center justify-between cursor-pointer transition active:scale-98">
-            <div>
-                <h4 class="font-bold text-xs text-white">${escapeHtml(s.name)}</h4>
-                <p class="text-[11px] text-slate-400">${s.course_count} Mata Kuliah • ${s.total_sks} SKS</p>
+    if (!globalSemesters || globalSemesters.length === 0) {
+        container.innerHTML = `<div class="text-center py-4 text-slate-500 text-xs">Belum ada semester.</div>`;
+        return;
+    }
+
+    container.innerHTML = globalSemesters.map(s => {
+        const courseCount = s.course_count || 0;
+        const totalSks = s.total_sks || 0;
+        const pendingTasks = s.pending_tasks || 0;
+
+        return `
+            <div onclick="selectSemesterTab(${s.id})" class="p-2.5 sm:p-3 bg-slate-900/60 hover:bg-slate-700/60 border border-slate-700/80 rounded-xl flex items-center justify-between cursor-pointer transition active:scale-98">
+                <div>
+                    <h4 class="font-bold text-xs text-white">${escapeHtml(s.name)}</h4>
+                    <p class="text-[11px] text-slate-400">${courseCount} Mata Kuliah • ${totalSks} SKS</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    ${pendingTasks > 0 ? `<span class="bg-rose-500/20 text-rose-300 text-[10px] px-2 py-0.5 rounded-full font-bold">${pendingTasks} Tugas</span>` : '<span class="text-slate-500 text-[10px]">0 Tugas</span>'}
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
+                </div>
             </div>
-            <div class="flex items-center space-x-2">
-                ${s.pending_tasks > 0 ? `<span class="bg-rose-500/20 text-rose-300 text-[10px] px-2 py-0.5 rounded-full font-bold">${s.pending_tasks} Tugas</span>` : ''}
-                <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // --- TAB 2: SEMESTERS & COURSES ---
@@ -180,6 +200,11 @@ async function loadSemestersTab() {
 
 function renderSemesterTabsNav() {
     const container = document.getElementById('semesterTabsNav');
+    if (!globalSemesters || globalSemesters.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-500 p-2">Belum ada semester.</div>`;
+        return;
+    }
+
     container.innerHTML = globalSemesters.map(s => `
         <button onclick="selectSemesterTab(${s.id})" class="px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition border shrink-0 ${selectedSemesterId === s.id ? 'bg-blue-600 text-white border-blue-500 shadow' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}">
             ${escapeHtml(s.name)}
@@ -206,7 +231,7 @@ async function loadCoursesForSelectedSemester() {
         const res = await fetch(`/api/courses?semester_id=${selectedSemesterId}`);
         const data = await res.json();
         if (data.status === 'success') {
-            globalCourses = data.data;
+            globalCourses = data.data || [];
             renderCoursesGrid(globalCourses);
         }
     } catch (err) {
@@ -230,51 +255,56 @@ function renderCoursesGrid(courses) {
 
     container.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            ${courses.map(c => `
-                <div class="bg-slate-800 border border-slate-700/90 rounded-2xl p-4 space-y-3 relative shadow-md">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <div class="text-[11px] text-blue-400 font-bold tracking-wide">${escapeHtml(c.code || 'MK')} • ${c.sks} SKS</div>
-                            <h3 class="text-sm sm:text-base font-bold text-white mt-0.5">${escapeHtml(c.name)}</h3>
-                        </div>
-                        <button onclick="deleteCourse(${c.id})" class="text-slate-500 hover:text-rose-400 p-1.5 text-xs" title="Hapus MK">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
+            ${courses.map(c => {
+                const fileCount = c.file_count || 0;
+                const pendingCount = c.pending_assignments || 0;
 
-                    <div class="space-y-1 text-xs text-slate-300 border-t border-b border-slate-700/60 py-2">
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-user-tie text-slate-400 w-4"></i>
-                            <span class="truncate">Dosen: <strong>${escapeHtml(c.dosen || 'Belum diisi')}</strong></span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-calendar-day text-slate-400 w-4"></i>
-                            <span class="truncate">Jadwal: <strong>${escapeHtml(c.schedule || '-')}</strong></span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-location-dot text-slate-400 w-4"></i>
-                            <span class="truncate">Ruang: <strong>${escapeHtml(c.room || '-')}</strong></span>
-                        </div>
-                    </div>
-
-                    ${c.notes ? `<p class="text-[11px] text-slate-400 italic">" ${escapeHtml(c.notes)} "</p>` : ''}
-
-                    <div class="flex items-center justify-between pt-1 text-xs">
-                        <span class="text-slate-400 text-[11px]">
-                            <i class="fa-solid fa-paperclip text-amber-400 mr-1"></i> ${c.file_count} Berkas
-                        </span>
-                        <div class="flex items-center space-x-1.5">
-                            <button onclick="openModalUploadFileForCourse(${c.id})" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-xl text-xs flex items-center space-x-1">
-                                <i class="fa-solid fa-upload"></i>
-                                <span>Upload</span>
-                            </button>
-                            <button onclick="filterFilesByCourse(${c.id})" class="bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white px-2.5 py-1.5 rounded-xl text-xs font-semibold">
-                                Lihat Berkas
+                return `
+                    <div class="bg-slate-800 border border-slate-700/90 rounded-2xl p-4 space-y-3 relative shadow-md">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <div class="text-[11px] text-blue-400 font-bold tracking-wide">${escapeHtml(c.code || 'MK')} • ${c.sks || 3} SKS</div>
+                                <h3 class="text-sm sm:text-base font-bold text-white mt-0.5">${escapeHtml(c.name)}</h3>
+                            </div>
+                            <button onclick="deleteCourse(${c.id})" class="text-slate-500 hover:text-rose-400 p-1.5 text-xs" title="Hapus MK">
+                                <i class="fa-solid fa-trash"></i>
                             </button>
                         </div>
+
+                        <div class="space-y-1 text-xs text-slate-300 border-t border-b border-slate-700/60 py-2">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-user-tie text-slate-400 w-4"></i>
+                                <span class="truncate">Dosen: <strong>${escapeHtml(c.dosen || 'Belum diisi')}</strong></span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-calendar-day text-slate-400 w-4"></i>
+                                <span class="truncate">Jadwal: <strong>${escapeHtml(c.schedule || '-')}</strong></span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-location-dot text-slate-400 w-4"></i>
+                                <span class="truncate">Ruang: <strong>${escapeHtml(c.room || '-')}</strong></span>
+                            </div>
+                        </div>
+
+                        ${c.notes ? `<p class="text-[11px] text-slate-400 italic">" ${escapeHtml(c.notes)} "</p>` : ''}
+
+                        <div class="flex items-center justify-between pt-1 text-xs">
+                            <span class="text-slate-400 text-[11px]">
+                                <i class="fa-solid fa-paperclip text-amber-400 mr-1"></i> ${fileCount} Berkas • ${pendingCount} Tugas
+                            </span>
+                            <div class="flex items-center space-x-1.5">
+                                <button onclick="openModalUploadFileForCourse(${c.id})" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-xl text-xs flex items-center space-x-1">
+                                    <i class="fa-solid fa-upload"></i>
+                                    <span>Upload</span>
+                                </button>
+                                <button onclick="filterFilesByCourse(${c.id})" class="bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white px-2.5 py-1.5 rounded-xl text-xs font-semibold">
+                                    Lihat Berkas
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            `).join('')}
+                `;
+            }).join('')}
         </div>
     `;
 }
@@ -302,7 +332,7 @@ async function loadAssignmentsTab() {
         const res = await fetch(url);
         const data = await res.json();
         if (data.status === 'success') {
-            renderAssignmentsList(data.data);
+            renderAssignmentsList(data.data || []);
         }
     } catch (err) {
         console.error("Gagal memuat tugas:", err);
@@ -315,7 +345,7 @@ function renderAssignmentsList(assignments) {
         container.innerHTML = `
             <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center text-slate-400">
                 <i class="fa-solid fa-clipboard-check text-3xl text-emerald-500 mb-2 block"></i>
-                <p class="text-xs sm:text-sm">Tidak ada tugas yang ditemukan.</p>
+                <p class="text-xs sm:text-sm">Tidak ada tugas yang terdaftar (Kosong).</p>
             </div>`;
         return;
     }
@@ -343,7 +373,6 @@ function renderAssignmentsList(assignments) {
                         <span>Deadline: <strong>${formatDateTime(a.deadline)}</strong></span>
                     </div>
 
-                    <!-- File Attachments for Task -->
                     ${a.files && a.files.length > 0 ? `
                         <div class="flex flex-wrap gap-1.5 pt-1">
                             ${a.files.map(f => `
@@ -353,17 +382,15 @@ function renderAssignmentsList(assignments) {
                                 </button>
                             `).join('')}
                         </div>
-                    ` : ''}
+                    ` : '<div class="text-[11px] text-slate-500 italic pt-0.5"><i class="fa-solid fa-paperclip mr-1 text-slate-600"></i>Belum ada berkas terlampir</div>'}
                 </div>
 
-                <!-- Action Controls (Mobile Touch Friendly) -->
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-700/60">
                     <div class="text-[11px] font-bold px-2.5 py-1 rounded-lg border ${badgeClass}">
                         ${countdown.text}
                     </div>
 
                     <div class="flex items-center space-x-1.5">
-                        <!-- Status Changer -->
                         <select onchange="toggleTaskStatus(${a.id}, this.value)" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-xl p-1.5 focus:outline-none">
                             <option value="Belum" ${a.status === 'Belum' ? 'selected' : ''}>Belum</option>
                             <option value="Proses" ${a.status === 'Proses' ? 'selected' : ''}>Proses</option>
@@ -424,8 +451,9 @@ async function loadFilesTab() {
         const res = await fetch(url);
         const data = await res.json();
         if (data.status === 'success') {
-            renderFilesTable(data.data);
-            renderFilesMobileList(data.data);
+            const files = data.data || [];
+            renderFilesTable(files);
+            renderFilesMobileList(files);
         }
     } catch (err) {
         console.error("Gagal memuat berkas:", err);
@@ -438,8 +466,9 @@ function filterFilesByCourse(courseId) {
         .then(res => res.json())
         .then(data => {
             if (data.status === 'success') {
-                renderFilesTable(data.data);
-                renderFilesMobileList(data.data);
+                const files = data.data || [];
+                renderFilesTable(files);
+                renderFilesMobileList(files);
             }
         });
 }
@@ -452,7 +481,7 @@ function renderFilesMobileList(files) {
         mobileContainer.innerHTML = `
             <div class="text-center py-8 text-slate-500 text-xs">
                 <i class="fa-solid fa-folder-open text-3xl mb-2 block text-slate-600"></i>
-                Belum ada berkas tersimpan.
+                Belum ada berkas tersimpan (0 Berkas).
             </div>`;
         return;
     }
@@ -505,7 +534,7 @@ function renderFilesTable(files) {
             <tr>
                 <td colspan="6" class="p-8 text-center text-slate-500 text-xs">
                     <i class="fa-solid fa-folder-open text-3xl mb-2 block text-slate-600"></i>
-                    Belum ada berkas tersimpan dalam kategori ini.
+                    Belum ada berkas tersimpan (0 Berkas).
                 </td>
             </tr>`;
         return;
@@ -583,19 +612,16 @@ async function openFilePreview(fileId, originalName, fileType, fileSize) {
 
     try {
         if (ext === 'pdf' || fileType.includes('pdf')) {
-            // PDF Preview
             body.innerHTML = `
                 <iframe src="${previewUrl}" class="w-full h-full rounded-none md:rounded-lg border-0 bg-white" title="Pratinjau PDF"></iframe>
             `;
         } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext) || fileType.startsWith('image/')) {
-            // Image Preview
             body.innerHTML = `
                 <div class="max-w-full max-h-full flex items-center justify-center p-1">
                     <img src="${previewUrl}" alt="${escapeHtml(originalName)}" class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-lg border border-slate-700">
                 </div>
             `;
         } else if (['mp4', 'webm', 'ogg'].includes(ext) || fileType.startsWith('video/')) {
-            // Video Preview
             body.innerHTML = `
                 <div class="w-full max-w-3xl flex items-center justify-center">
                     <video controls autoplay class="w-full max-h-[75vh] rounded-lg shadow-lg">
@@ -605,7 +631,6 @@ async function openFilePreview(fileId, originalName, fileType, fileSize) {
                 </div>
             `;
         } else if (['mp3', 'wav', 'aac', 'm4a'].includes(ext) || fileType.startsWith('audio/')) {
-            // Audio Preview
             body.innerHTML = `
                 <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 flex flex-col items-center space-y-4 max-w-sm w-full shadow-lg">
                     <i class="fa-solid fa-music text-4xl text-blue-400 animate-bounce"></i>
@@ -619,7 +644,6 @@ async function openFilePreview(fileId, originalName, fileType, fileSize) {
                 </div>
             `;
         } else if (['docx', 'doc'].includes(ext)) {
-            // DOCX preview using Mammoth.js
             try {
                 const response = await fetch(previewUrl);
                 const arrayBuffer = await response.arrayBuffer();
@@ -641,7 +665,6 @@ async function openFilePreview(fileId, originalName, fileType, fileSize) {
                 `;
             }
         } else if (['txt', 'js', 'py', 'json', 'html', 'css', 'sql', 'md', 'c', 'cpp', 'java'].includes(ext) || fileType.startsWith('text/')) {
-            // Code & Plain Text Preview
             const res = await fetch(previewUrl);
             const textContent = await res.text();
             body.innerHTML = `
@@ -650,7 +673,6 @@ async function openFilePreview(fileId, originalName, fileType, fileSize) {
                 </div>
             `;
         } else {
-            // Generic Fallback
             body.innerHTML = `
                 <div class="text-center p-6 space-y-4 text-slate-300">
                     <i class="${getFileIconClass(originalName, fileType)} text-5xl text-slate-500"></i>
@@ -748,11 +770,13 @@ async function handleAddCourse(e) {
 async function openModalAddAssignment() {
     const res = await fetch('/api/courses');
     const data = await res.json();
-    if (data.status === 'success') {
-        const taskCourseSelect = document.getElementById('taskCourseSelect');
+    const taskCourseSelect = document.getElementById('taskCourseSelect');
+    if (data.status === 'success' && data.data && data.data.length > 0) {
         taskCourseSelect.innerHTML = data.data.map(c => `
             <option value="${c.id}">${escapeHtml(c.name)} (${escapeHtml(c.code || 'MK')})</option>
         `).join('');
+    } else {
+        taskCourseSelect.innerHTML = '<option value="">-- Belum Ada Mata Kuliah (Tambah MK Dulu) --</option>';
     }
     document.getElementById('modalAddAssignment').classList.remove('hidden');
 }
@@ -763,6 +787,10 @@ function closeModalAddAssignment() {
 async function handleAddAssignment(e) {
     e.preventDefault();
     const course_id = document.getElementById('taskCourseSelect').value;
+    if (!course_id) {
+        alert("Silakan tambah Mata Kuliah terlebih dahulu!");
+        return;
+    }
     const title = document.getElementById('taskTitleInput').value;
     const description = document.getElementById('taskDescInput').value;
     const deadline = document.getElementById('taskDeadlineInput').value;
@@ -789,14 +817,16 @@ async function openModalUploadFile() {
     const resC = await fetch('/api/courses');
     const dataC = await resC.json();
     const courseSelect = document.getElementById('uploadFileCourse');
-    courseSelect.innerHTML = '<option value="">-- Pilih Mata Kuliah --</option>' + 
-        (dataC.data || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    const courses = (dataC.data || []);
+    courseSelect.innerHTML = '<option value="">-- Pilih Mata Kuliah (Opsional) --</option>' + 
+        courses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
 
     const resA = await fetch('/api/assignments');
     const dataA = await resA.json();
     const assignSelect = document.getElementById('uploadFileAssignment');
-    assignSelect.innerHTML = '<option value="">-- Tidak Terikat Tugas --</option>' + 
-        (dataA.data || []).map(a => `<option value="${a.id}">${escapeHtml(a.title)}</option>`).join('');
+    const assignments = (dataA.data || []);
+    assignSelect.innerHTML = '<option value="">-- Tidak Terikat Tugas (Opsional) --</option>' + 
+        assignments.map(a => `<option value="${a.id}">${escapeHtml(a.title)}</option>`).join('');
 
     document.getElementById('modalUploadFile').classList.remove('hidden');
 }
@@ -849,6 +879,23 @@ async function handleUploadFile(e) {
     }
 }
 
+// Reset data helper
+async function resetAllData() {
+    if (!confirm("Kosongkan semua data tugas, mata kuliah, dan berkas sampel?")) return;
+    try {
+        const res = await fetch('/api/reset-data', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+            alert(data.message);
+            await loadSemestersData();
+            await loadDashboardSummary();
+            switchTab('dashboard');
+        }
+    } catch (err) {
+        alert("Gagal mengosongkan data.");
+    }
+}
+
 // --- NOTIFICATION & DEADLINE REMINDER UTILS ---
 function checkNotificationPermissionStatus() {
     const statusText = document.getElementById('notifStatusText');
@@ -894,6 +941,7 @@ function startDeadlineTimerCheck() {
 
 // --- HELPER UTILITIES ---
 function getDeadlineCountdown(deadlineStr) {
+    if (!deadlineStr) return { isOverdue: false, hoursLeft: 999, text: '-' };
     const now = new Date();
     const deadline = new Date(deadlineStr.replace(' ', 'T'));
     const diffMs = deadline - now;
@@ -914,6 +962,7 @@ function getDeadlineCountdown(deadlineStr) {
 }
 
 function getFileIconClass(filename, mimeType) {
+    if (!filename) return 'fa-solid fa-file text-slate-400';
     const ext = filename.split('.').pop().toLowerCase();
     if (ext === 'pdf') return 'fa-solid fa-file-pdf text-rose-400';
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return 'fa-solid fa-file-image text-emerald-400';
