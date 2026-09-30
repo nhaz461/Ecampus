@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>eCampus Hub - Personal Academic & File Manager</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Mammoth.js for client-side Word DOCX preview -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- Custom styling for mobile optimization -->
+    <style>
+        /* Touch optimization & tap highlights */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        .sidebar-active {
+            background-color: #2563eb;
+            color: white !important;
+        }
+        .mobile-nav-active {
+            color: #3b82f6 !important;
+            font-weight: 700;
+        }
+        .badge-urgent {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+        .badge-warning {
+            background-color: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fbbf24;
+        }
+        .badge-normal {
+            background-color: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #60a5fa;
+        }
+        /* Custom scrollbars for clean mobile feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col pb-20 md:pb-6">
+
+    <!-- Top Header (Compact on mobile) -->
+    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5 sm:space-x-3">
+                <div class="bg-blue-600 p-1.5 sm:p-2 rounded-xl text-white shadow-md">
+                    <i class="fa-solid fa-graduation-cap text-lg sm:text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold text-white tracking-wide leading-tight">eCampus Hub</h1>
+                    <p class="text-[10px] sm:text-xs text-slate-400 hidden xs:block">Manajemen Semester, Kontrak & Preview File</p>
+                </div>
+            </div>
+
+            <!-- Reminder Notification Toggle Button -->
+            <div class="flex items-center space-x-2">
+                <button id="btnEnableNotifications" onclick="requestNotificationPermission()" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-200 text-xs px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl flex items-center space-x-1.5 transition border border-slate-600">
+                    <i class="fa-solid fa-bell text-yellow-400 text-sm"></i>
+                    <span id="notifStatusText" class="text-[11px] sm:text-xs">Pengingat</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col md:flex-row gap-4 sm:gap-6">
+
+        <!-- Sidebar Navigation (Desktop view) -->
+        <aside class="hidden md:flex w-64 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex-col space-y-4 shrink-0 h-fit shadow-md">
+            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Menu Utama</div>
+            <nav class="space-y-1">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full text-left px-3 py-2.5 rounded-xl flex items-center space-x-3 text-sm font-medium transition text-slate-300 hover:bg-slate-700">
+                    <i class="fa-solid fa-chart-pie w-5 text-blue-400"></i>
+                    <span>Dashboard Utama</span>
+                </button>
+                <button onclick="switchTab('semesters')" id="nav-semesters" class="w-full text-left px-3 py-2.5 rounded-xl flex items-center space-x-3 text-sm font-medium transition text-slate-300 hover:bg-slate-700">
+                    <i class="fa-solid fa-layer-group w-5 text-indigo-400"></i>
+                    <span>Data Semester (1 - 8)</span>
+                </button>
+                <button onclick="switchTab('assignments')" id="nav-assignments" class="w-full text-left px-3 py-2.5 rounded-xl flex items-center space-x-3 text-sm font-medium transition text-slate-300 hover:bg-slate-700">
+                    <i class="fa-solid fa-list-check w-5 text-emerald-400"></i>
+                    <span>Tugas & Pengingat</span>
+                    <span id="badgePendingTasksCount" class="ml-auto bg-emerald-500/20 text-emerald-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                </button>
+                <button onclick="switchTab('files')" id="nav-files" class="w-full text-left px-3 py-2.5 rounded-xl flex items-center space-x-3 text-sm font-medium transition text-slate-300 hover:bg-slate-700">
+                    <i class="fa-solid fa-folder-open w-5 text-amber-400"></i>
+                    <span>Berkas & Preview</span>
+                </button>
+            </nav>
+
+            <hr class="border-slate-700">
+
+            <!-- Fast Actions (Desktop) -->
+            <div class="space-y-2">
+                <button onclick="openModalAddAssignment()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-2 transition shadow">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Tambah Tugas Baru</span>
+                </button>
+                <button onclick="openModalUploadFile()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2.5 px-3 rounded-xl text-xs flex items-center justify-center space-x-2 transition border border-slate-600">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Unggah Berkas / Kontrak</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 space-y-4 sm:space-y-6 min-w-0">
+
+            <!-- URGENT DEADLINE BANNER ALERT -->
+            <div id="urgentAlertBanner" class="hidden bg-rose-950/90 border border-rose-600 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between text-rose-200 shadow-lg">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-rose-600/30 rounded-xl text-rose-400 animate-pulse shrink-0">
+                        <i class="fa-solid fa-triangle-exclamation text-lg sm:text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-xs sm:text-sm">Ada Tugas Mendekati Deadline!</h3>
+                        <p id="urgentAlertText" class="text-[11px] sm:text-xs text-rose-300 leading-tight">Segera periksa tugas Anda yang akan berakhir dalam kurun 3 hari.</p>
+                    </div>
+                </div>
+                <button onclick="switchTab('assignments')" class="text-[11px] sm:text-xs bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold px-2.5 sm:px-3 py-1.5 rounded-xl transition shrink-0 ml-2">
+                    Lihat
+                </button>
+            </div>
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="space-y-4 sm:space-y-6">
+                <!-- Summary Metric Cards (Responsive Grid 2x2 mobile, 4x1 desktop) -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+                    <div class="bg-slate-800 border border-slate-700 p-3 sm:p-4 rounded-2xl flex items-center space-x-3 shadow-sm">
+                        <div class="p-2.5 sm:p-3 bg-blue-500/20 text-blue-400 rounded-xl shrink-0">
+                            <i class="fa-solid fa-book-open text-xl sm:text-2xl"></i>
+                        </div>
+                        <div class="truncate">
+                            <div class="text-[10px] sm:text-xs text-slate-400 truncate">Total MK</div>
+                            <div id="statTotalCourses" class="text-xl sm:text-2xl font-bold text-white">0</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 p-3 sm:p-4 rounded-2xl flex items-center space-x-3 shadow-sm">
+                        <div class="p-2.5 sm:p-3 bg-indigo-500/20 text-indigo-400 rounded-xl shrink-0">
+                            <i class="fa-solid fa-award text-xl sm:text-2xl"></i>
+                        </div>
+                        <div class="truncate">
+                            <div class="text-[10px] sm:text-xs text-slate-400 truncate">Total SKS</div>
+                            <div id="statTotalSks" class="text-xl sm:text-2xl font-bold text-white">0</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 p-3 sm:p-4 rounded-2xl flex items-center space-x-3 shadow-sm">
+                        <div class="p-2.5 sm:p-3 bg-emerald-500/20 text-emerald-400 rounded-xl shrink-0">
+                            <i class="fa-solid fa-spinner text-xl sm:text-2xl"></i>
+                        </div>
+                        <div class="truncate">
+                            <div class="text-[10px] sm:text-xs text-slate-400 truncate">Tugas Aktif</div>
+                            <div id="statPendingTasks" class="text-xl sm:text-2xl font-bold text-white">0</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 p-3 sm:p-4 rounded-2xl flex items-center space-x-3 shadow-sm">
+                        <div class="p-2.5 sm:p-3 bg-rose-500/20 text-rose-400 rounded-xl shrink-0">
+                            <i class="fa-solid fa-clock-rotate-left text-xl sm:text-2xl"></i>
+                        </div>
+                        <div class="truncate">
+                            <div class="text-[10px] sm:text-xs text-slate-400 truncate">Tugas Urgent</div>
+                            <div id="statUrgentTasks" class="text-xl sm:text-2xl font-bold text-white">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upcoming Deadlines & Action Reminders -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <!-- Left: Deadlines Widget -->
+                    <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-md">
+                        <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-bell text-amber-400"></i>
+                                <h2 class="font-bold text-sm sm:text-base text-slate-100">Pengingat Tugas Mendatang</h2>
+                            </div>
+                            <button onclick="switchTab('assignments')" class="text-xs text-blue-400 hover:text-blue-300 font-semibold">Lihat Semua &rarr;</button>
+                        </div>
+                        <div id="dashboardUpcomingTasks" class="space-y-2.5">
+                            <!-- Tasks populated dynamically -->
+                            <div class="text-center py-6 text-slate-500 text-xs">Memuat pengingat tugas...</div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Quick Semester Selector & Overview -->
+                    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-md">
+                        <div class="border-b border-slate-700 pb-3 flex items-center justify-between">
+                            <h2 class="font-bold text-sm sm:text-base text-slate-100">Ringkasan Semester</h2>
+                            <button onclick="openModalAddSemester()" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-200">
+                                <i class="fa-solid fa-plus text-xs"></i> Tambah
+                            </button>
+                        </div>
+                        <div id="dashboardSemesterList" class="space-y-2 max-h-72 sm:max-h-80 overflow-y-auto pr-1">
+                            <!-- Semesters list populated dynamically -->
+                            <div class="text-center py-6 text-slate-500 text-xs">Memuat semester...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: DATA SEMESTER (1 - 8) -->
+            <section id="tab-semesters" class="hidden space-y-4 sm:space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800 border border-slate-700 p-4 rounded-2xl">
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-white">Struktur Semester & Mata Kuliah</h2>
+                        <p class="text-[11px] sm:text-xs text-slate-400">Kelola Mata Kuliah, Dosen, Jadwal, dan Berkas Kontrak per Semester</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="openModalAddSemester()" class="flex-1 sm:flex-none bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-2 rounded-xl font-medium border border-slate-600 transition text-center">
+                            <i class="fa-solid fa-plus mr-1"></i> + Semester
+                        </button>
+                        <button onclick="openModalAddCourse()" class="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl font-bold transition text-center shadow">
+                            <i class="fa-solid fa-plus mr-1"></i> + Mata Kuliah
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Semester Selector Horizontal Touch Scroll -->
+                <div id="semesterTabsNav" class="flex overflow-x-auto space-x-2 pb-2 scrollbar-none">
+                    <!-- Semester pills inserted via JS -->
+                </div>
+
+                <!-- Selected Semester Details & Courses Grid -->
+                <div id="coursesContainer" class="space-y-4">
+                    <div class="text-center py-10 text-slate-500 text-xs">Pilih semester di atas untuk melihat daftar mata kuliah.</div>
+                </div>
+            </section>
+
+            <!-- TAB 3: TUGAS & PENGINGAT -->
+            <section id="tab-assignments" class="hidden space-y-4 sm:space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800 border border-slate-700 p-4 rounded-2xl">
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-white">Manajemen Tugas & Pengingat Deadline</h2>
+                        <p class="text-[11px] sm:text-xs text-slate-400">Lacak prioritas, tenggat waktu, dan status pengerjaan tugas</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <select id="filterAssignmentStatus" onchange="loadAssignmentsTab()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 flex-1 sm:flex-none">
+                            <option value="">Semua Status</option>
+                            <option value="Belum">Belum Dikerjakan</option>
+                            <option value="Proses">Sedang Dikerjakan</option>
+                            <option value="Selesai">Selesai</option>
+                        </select>
+                        <button onclick="openModalAddAssignment()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl font-bold transition shadow whitespace-nowrap">
+                            <i class="fa-solid fa-plus mr-1"></i> + Tugas
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Assignments List / Cards -->
+                <div id="assignmentsList" class="space-y-3">
+                    <div class="text-center py-10 text-slate-500 text-xs">Memuat daftar tugas...</div>
+                </div>
+            </section>
+
+            <!-- TAB 4: PREVIEW & STORAGE BERKAS -->
+            <section id="tab-files" class="hidden space-y-4 sm:space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800 border border-slate-700 p-4 rounded-2xl">
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-white">Repositori & Pratinjau Berkas</h2>
+                        <p class="text-[11px] sm:text-xs text-slate-400">Simpan dan langsung preview Kontrak Kuliah, Tugas, dan Materi Modul</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <select id="filterFileCategory" onchange="loadFilesTab()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 flex-1 sm:flex-none">
+                            <option value="">Semua Kategori</option>
+                            <option value="kontrak">Kontrak Kuliah</option>
+                            <option value="tugas">Berkas Tugas</option>
+                            <option value="materi">Materi / Modul</option>
+                            <option value="catatan">Catatan</option>
+                            <option value="lainnya">Lainnya</option>
+                        </select>
+                        <button onclick="openModalUploadFile()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl font-bold transition shadow whitespace-nowrap">
+                            <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Unggah Berkas
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Files Table (Desktop View) / Mobile Card List -->
+                <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow">
+                    <!-- Mobile view cards -->
+                    <div id="filesMobileList" class="block md:hidden divide-y divide-slate-700 p-2 space-y-2">
+                        <div class="text-center py-8 text-slate-500 text-xs">Memuat berkas...</div>
+                    </div>
+
+                    <!-- Desktop view table -->
+                    <div class="hidden md:block overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+                                    <th class="p-3">Nama Berkas</th>
+                                    <th class="p-3">Kategori</th>
+                                    <th class="p-3">Mata Kuliah</th>
+                                    <th class="p-3">Ukuran</th>
+                                    <th class="p-3">Tanggal Unggah</th>
+                                    <th class="p-3 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="filesTableBody" class="divide-y divide-slate-700 text-sm text-slate-300">
+                                <tr>
+                                    <td colspan="6" class="p-6 text-center text-slate-500">Memuat berkas...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ==================== MOBILE BOTTOM NAVIGATION BAR ==================== -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-800/95 backdrop-blur-md border-t border-slate-700 z-40 flex items-center justify-around py-2 px-1 shadow-2xl">
+        <button onclick="switchTab('dashboard')" id="mobile-nav-dashboard" class="flex flex-col items-center justify-center w-full py-1 text-slate-400 transition">
+            <i class="fa-solid fa-chart-pie text-lg mb-0.5"></i>
+            <span class="text-[10px]">Dashboard</span>
+        </button>
+        <button onclick="switchTab('semesters')" id="mobile-nav-semesters" class="flex flex-col items-center justify-center w-full py-1 text-slate-400 transition">
+            <i class="fa-solid fa-layer-group text-lg mb-0.5"></i>
+            <span class="text-[10px]">Semester</span>
+        </button>
+        <button onclick="switchTab('assignments')" id="mobile-nav-assignments" class="flex flex-col items-center justify-center w-full py-1 text-slate-400 transition relative">
+            <i class="fa-solid fa-list-check text-lg mb-0.5"></i>
+            <span class="text-[10px]">Tugas</span>
+            <span id="mobileBadgePendingCount" class="absolute top-0 right-4 bg-emerald-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">0</span>
+        </button>
+        <button onclick="switchTab('files')" id="mobile-nav-files" class="flex flex-col items-center justify-center w-full py-1 text-slate-400 transition">
+            <i class="fa-solid fa-folder-open text-lg mb-0.5"></i>
+            <span class="text-[10px]">Berkas</span>
+        </button>
+    </nav>
+
+    <!-- FLOATING ACTION BUTTON (FAB) ON MOBILE -->
+    <div class="md:hidden fixed bottom-16 right-4 z-40 flex flex-col space-y-2">
+        <button onclick="openModalAddAssignment()" title="Tambah Tugas Baru" class="bg-blue-600 hover:bg-blue-500 active:scale-90 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition border border-blue-400">
+            <i class="fa-solid fa-plus text-lg"></i>
+        </button>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- FILE PREVIEW MODAL (Full screen optimized on mobile) -->
+    <div id="previewModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-0 md:p-4">
+        <div class="bg-slate-800 border-0 md:border md:border-slate-700 w-full h-full md:h-[85vh] md:max-w-5xl md:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+            <!-- Modal Header -->
+            <div class="p-3.5 sm:p-4 bg-slate-900 border-b border-slate-700 flex items-center justify-between">
+                <div class="flex items-center space-x-3 overflow-hidden mr-2">
+                    <div id="previewIcon" class="text-lg sm:text-xl text-blue-400 shrink-0"><i class="fa-solid fa-file"></i></div>
+                    <div class="truncate">
+                        <h3 id="previewTitle" class="font-bold text-white text-xs sm:text-sm truncate">Preview File</h3>
+                        <p id="previewMeta" class="text-[10px] sm:text-xs text-slate-400 truncate">Ukuran file • Tipe</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 shrink-0">
+                    <a id="previewDownloadBtn" href="#" download class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl flex items-center space-x-1 border border-slate-600">
+                        <i class="fa-solid fa-download"></i>
+                        <span class="hidden sm:inline">Unduh</span>
+                    </a>
+                    <button onclick="closePreviewModal()" class="text-slate-400 hover:text-white p-1.5 rounded-xl text-lg">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- Modal Body (Preview Content Area) -->
+            <div id="previewBody" class="flex-1 bg-slate-950 p-2 sm:p-4 overflow-auto flex items-center justify-center">
+                <!-- Preview elements rendered dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: UPLOAD FILE -->
+    <div id="modalUploadFile" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-white text-base">Unggah Berkas Baru</h3>
+                <button onclick="closeModalUploadFile()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="formUploadFile" onsubmit="handleUploadFile(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih File</label>
+                    <input type="file" id="uploadFileInput" required class="w-full text-xs text-slate-300 bg-slate-900 border border-slate-700 rounded-xl p-2.5 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Kategori Berkas</label>
+                    <select id="uploadFileCategory" required class="w-full text-xs text-slate-200 bg-slate-900 border border-slate-700 rounded-xl p-3">
+                        <option value="kontrak">📄 Kontrak Kuliah / Silabus</option>
+                        <option value="tugas">📝 Berkas Tugas</option>
+                        <option value="materi">📚 Materi / Slide Modul</option>
+                        <option value="catatan">📒 Catatan Kuliah</option>
+                        <option value="lainnya">📎 Lainnya</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Mata Kuliah (Opsional)</label>
+                    <select id="uploadFileCourse" class="w-full text-xs text-slate-200 bg-slate-900 border border-slate-700 rounded-xl p-3">
+                        <option value="">-- Pilih Mata Kuliah --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Tugas Terkait (Opsional)</label>
+                    <select id="uploadFileAssignment" class="w-full text-xs text-slate-200 bg-slate-900 border border-slate-700 rounded-xl p-3">
+                        <option value="">-- Tidak Terikat Tugas --</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeModalUploadFile()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs font-medium">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow">Unggah Sekarang</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD SEMESTER -->
+    <div id="modalAddSemester" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-white text-base">Tambah Semester Baru</h3>
+                <button onclick="closeModalAddSemester()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form onsubmit="handleAddSemester(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Nama Semester</label>
+                    <input type="text" id="semNameInput" placeholder="Contoh: Semester 5" required class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Tahun Akademik</label>
+                    <input type="text" id="semYearInput" placeholder="Contoh: 2025/2026 Ganjil" class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Status Semester</label>
+                    <select id="semStatusInput" class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                        <option value="Aktif">Aktif</option>
+                        <option value="Mendatang">Mendatang</option>
+                        <option value="Selesai">Selesai</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeModalAddSemester()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow">Simpan Semester</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD COURSE -->
+    <div id="modalAddCourse" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-white text-base">Tambah Mata Kuliah</h3>
+                <button onclick="closeModalAddCourse()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form onsubmit="handleAddCourse(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih Semester</label>
+                    <select id="courseSemesterSelect" required class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="col-span-1">
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Kode MK</label>
+                        <input type="text" id="courseCodeInput" placeholder="IF101" class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Nama Mata Kuliah</label>
+                        <input type="text" id="courseNameInput" placeholder="Kalkulus II" required class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">SKS</label>
+                        <input type="number" id="courseSksInput" value="3" min="1" max="6" required class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Dosen Pengampu</label>
+                        <input type="text" id="courseDosenInput" placeholder="Dr. John Doe" class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Jadwal Kuliah</label>
+                        <input type="text" id="courseScheduleInput" placeholder="Senin, 08:00 - 10:30" class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Ruangan / Link</label>
+                        <input type="text" id="courseRoomInput" placeholder="Lab 3 / Zoom" class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeModalAddCourse()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow">Simpan Mata Kuliah</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD ASSIGNMENT -->
+    <div id="modalAddAssignment" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-white text-base">Tambah Tugas & Pengingat</h3>
+                <button onclick="closeModalAddAssignment()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form onsubmit="handleAddAssignment(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Pilih Mata Kuliah</label>
+                    <select id="taskCourseSelect" required class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Judul Tugas</label>
+                    <input type="text" id="taskTitleInput" placeholder="Tugas 1: Laporan Praktikum" required class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Deskripsi / Petunjuk Tugas</label>
+                    <textarea id="taskDescInput" rows="3" placeholder="Detail petunjuk pengerjaan..." class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200"></textarea>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Deadline / Tenggat Waktu</label>
+                        <input type="datetime-local" id="taskDeadlineInput" required class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Prioritas</label>
+                        <select id="taskPrioritySelect" class="w-full text-xs bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200">
+                            <option value="Tinggi">🔴 Tinggi (Sangat Penting)</option>
+                            <option value="Sedang" selected>🟡 Sedang</option>
+                            <option value="Rendah">🔵 Rendah</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeModalAddAssignment()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow">Simpan Tugas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
